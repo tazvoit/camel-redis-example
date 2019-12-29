@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd        http://camel.apache.org/schema/spring       http://camel.apache.org/schema/spring/camel-spring.xsd http://cxf.apache.org/jaxrs-client http://cxf.apache.org/schemas/jaxrs-client.xsd http://camel.apache.org/schema/cxf http://camel.apache.org/schema/cxf/camel-cxf.xsd">
+    <import resource="application-context.xml"/>
+
+
+    <camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+        <onException>
+            <exception>java.lang.Exception</exception>
+            <handled>
+                <constant>true</constant>
+            </handled>
+            <setHeader headerName="CamelHttpResponseCode">
+                <simple resultType="Integer">500</simple>
+            </setHeader>
+            <log loggingLevel="ERROR" message="[EXCEPTION]:${exchangeProperty[exception]}"/>
+            <process ref="errorHandler" />
+            <setHeader headerName="Exchange.HTTP_RESPONSE_CODE">
+                <simple resultType="Integer">${in.header.CamelHttpResponseCode}</simple>
+            </setHeader>
+        </onException>
+
+        <rest enableCORS="true">
+            <post uri="/demo-redis/fechaBaseDeDatos" >
+                <description>Envío de petición</description>
+                <to uri="direct:consumirservice"/>
+            </post>
+        </rest>
+
+        <route startupOrder="1">
+            <from uri="timer://foo?fixedRate=true&amp;period=86400000" />
+            <process ref="redisSaveProcessor" />
+        </route>
+
+        <route startupOrder="2">
+            <from uri="direct:consumirservice" />
+            <process ref="redisClientProcessor" />
+        </route>
+    </camelContext>
+</beans>
